@@ -205,21 +205,173 @@ describe("Requirements", () => {
         });
       });
       describe("then may be called multiple times on the same promise.", () => {
-        it("If/when promise is fulfilled, all respective onFulfilled callbacks must execute in the order of their originating calls to then.", () => {});
-        it("If/when promise is rejected, all respective onRejected callbacks must execute in the order of their originating calls to then.", () => {});
+        it("If/when promise is fulfilled, all respective onFulfilled callbacks must execute in the order of their originating calls to then.", done => {
+          const state = {
+            c1: false,
+            c2: false,
+            c3: false
+          };
+          const p = new P((resolve, reject) => {
+            setTimeout(resolve);
+          });
+          p.then(() => {
+            expect(state.c1).toBeFalsy();
+            expect(state.c2).toBeFalsy();
+            expect(state.c3).toBeFalsy();
+            state.c1 = true;
+          });
+          p.then(() => {
+            expect(state.c1).toBeTruthy();
+            expect(state.c2).toBeFalsy();
+            expect(state.c3).toBeFalsy();
+            state.c2 = true;
+          });
+          p.then(() => {
+            expect(state.c1).toBeTruthy();
+            expect(state.c2).toBeTruthy();
+            expect(state.c3).toBeFalsy();
+            state.c3 = true;
+            done();
+          });
+        });
+        it("If/when promise is rejected, all respective onRejected callbacks must execute in the order of their originating calls to then.", done => {
+          const state = {
+            c1: false,
+            c2: false,
+            c3: false
+          };
+          const p = new P((resolve, reject) => {
+            setTimeout(reject);
+          });
+          p.then(undefined, () => {
+            expect(state.c1).toBeFalsy();
+            expect(state.c2).toBeFalsy();
+            expect(state.c3).toBeFalsy();
+            state.c1 = true;
+          });
+          p.then(undefined, () => {
+            expect(state.c1).toBeTruthy();
+            expect(state.c2).toBeFalsy();
+            expect(state.c3).toBeFalsy();
+            state.c2 = true;
+          });
+          p.then(undefined, () => {
+            expect(state.c1).toBeTruthy();
+            expect(state.c2).toBeTruthy();
+            expect(state.c3).toBeFalsy();
+            state.c3 = true;
+            done();
+          });
+        });
       });
-      it("then must return a promise [3.3].", () => {});
+      it("then must return a promise [3.3].", done => {
+        const state = {
+          c1: false,
+          c2: false,
+          c3: false
+        };
+        const p = new P((resolve, reject) => {
+          setTimeout(resolve);
+        });
+        p.then(() => {
+          expect(state.c1).toBeFalsy();
+          expect(state.c2).toBeFalsy();
+          expect(state.c3).toBeFalsy();
+          state.c1 = true;
+        })
+          .then(() => {
+            expect(state.c1).toBeTruthy();
+            expect(state.c2).toBeFalsy();
+            expect(state.c3).toBeFalsy();
+            state.c2 = true;
+          })
+          .then(() => {
+            expect(state.c1).toBeTruthy();
+            expect(state.c2).toBeTruthy();
+            expect(state.c3).toBeFalsy();
+            state.c3 = true;
+            done();
+          });
+      });
       describe("promise2 = promise1.then(onFulfilled, onRejected);", () => {
-        it("If either onFulfilled or onRejected returns a value x, run the Promise Resolution Procedure [[Resolve]](promise2, x).", () => {});
-        it("If either onFulfilled or onRejected throws an exception e, promise2 must be rejected with e as the reason.", () => {});
-        it("If onFulfilled is not a function and promise1 is fulfilled, promise2 must be fulfilled with the same value as promise1.", () => {});
-        it("If onRejected is not a function and promise1 is rejected, promise2 must be rejected with the same reason as promise1.", () => {});
+        describe("If either onFulfilled or onRejected returns a value x, run the Promise Resolution Procedure [[Resolve]](promise2, x).", () => {
+          it("onFullfilled", done => {
+            const p = new P((resolve, reject) => {
+              setTimeout(resolve);
+            });
+            p.then(() => {
+              return 123;
+            }).then(val => {
+              expect(val).toBe(123);
+              done();
+            });
+          });
+          it("onRejected", done => {
+            const p = new P((resolve, reject) => {
+              setTimeout(reject);
+            });
+            p.then(undefined, () => {
+              return 123;
+            }).then(val => {
+              expect(val).toBe(123);
+              done();
+            });
+          });
+        });
+        describe("If either onFulfilled or onRejected throws an exception e, promise2 must be rejected with e as the reason.", () => {
+          it("onFullfilled", done => {
+            const p = new P((resolve, reject) => {
+              setTimeout(resolve);
+            });
+            p.then(() => {
+              throw "Error 123";
+            }).then(undefined, val => {
+              expect(val).toBe("Error 123");
+              done();
+            });
+          });
+          it("onRejected", done => {
+            const p = new P((resolve, reject) => {
+              setTimeout(reject);
+            });
+            p.then(undefined, () => {
+              throw "Error 123";
+            }).then(undefined, val => {
+              expect(val).toBe("Error 123");
+              done();
+            });
+          });
+        });
+        it("If onFulfilled is not a function and promise1 is fulfilled, promise2 must be fulfilled with the same value as promise1.", done => {
+          const p = new P((resolve, reject) => {
+            setTimeout(() => resolve(123));
+          });
+          p.then(undefined).then(val => {
+            expect(val).toBe(123);
+            done();
+          });
+        });
+        it("If onRejected is not a function and promise1 is rejected, promise2 must be rejected with the same reason as promise1.", done => {
+          const p = new P((resolve, reject) => {
+            setTimeout(() => reject(123));
+          });
+          p.then(undefined, undefined).then(undefined, val => {
+            expect(val).toBe(123);
+            done();
+          });
+        });
       });
     });
   });
   describe("The Promise Resolution Procedure", () => {
-    // The promise resolution procedure is an abstract operation taking as input a promise and a value, which we denote as [[Resolve]](promise, x). If x is a thenable, it attempts to make promise adopt the state of x, under the assumption that x behaves at least somewhat like a promise. Otherwise, it fulfills promise with the value x.
-    // This treatment of thenables allows promise implementations to interoperate, as long as they expose a Promises/A+-compliant then method. It also allows Promises/A+ implementations to “assimilate” nonconformant implementations with reasonable then methods.
+    // The promise resolution procedure is an abstract operation taking as input a promise and a
+    // value, which we denote as [[Resolve]](promise, x). If x is a thenable, it attempts to make
+    // promise adopt the state of x, under the assumption that x behaves at least somewhat like a
+    // promise. Otherwise, it fulfills promise with the value x.
+    //
+    // This treatment of thenables allows promise implementations to interoperate, as long as they
+    // expose a Promises/A+-compliant then method. It also allows Promises/A+ implementations to
+    // “assimilate” nonconformant implementations with reasonable then methods.
     // To run [[Resolve]](promise, x), perform the following steps:
     describe("If promise and x refer to the same object, reject promise with a TypeError as the reason.", () => {
       describe("If x is a promise, adopt its state [3.4]:", () => {

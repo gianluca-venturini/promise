@@ -29,14 +29,14 @@ const P = function(callback) {
 
   this.chainExecution = function() {
     if (this.isFullfilled) {
-      const onFullfill = this.onFullfilledArray.pop();
-      if (onFullfill) {
+      let onFullfill = undefined;
+      while ((onFullfill = this.onFullfilledArray.shift())) {
         onFullfill.call(undefined, this.fullfilledValue);
       }
     }
     if (this.isRejected) {
-      const onRejected = this.onRejectedArray.pop();
-      if (onRejected) {
+      let onRejected = undefined;
+      while ((onRejected = this.onRejectedArray.shift())) {
         onRejected.call(undefined, this.rejectedValue);
       }
     }
@@ -46,13 +46,33 @@ const P = function(callback) {
 };
 
 P.prototype.then = function(onFulfilled, onRejected) {
-  if (onFulfilled) {
-    this.onFullfilledArray.push(onFulfilled);
-  }
-  if (onRejected) {
-    this.onRejectedArray.push(onRejected);
-  }
-  this.chainEvaluation();
+  return new P((resolve, reject) => {
+    if (onFulfilled) {
+      this.onFullfilledArray.push(val => {
+        try {
+          const newVal = onFulfilled(val);
+          resolve(newVal);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    } else {
+      this.onFullfilledArray.push(resolve);
+    }
+    if (onRejected) {
+      this.onRejectedArray.push(val => {
+        try {
+          const newVal = onRejected(val);
+          resolve(newVal);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    } else {
+      this.onRejectedArray.push(reject);
+    }
+    this.chainEvaluation();
+  });
 };
 
 module.exports = P;
