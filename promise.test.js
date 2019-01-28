@@ -13,17 +13,79 @@ describe("Requirements", () => {
   describe("Promise States", () => {
     // A promise must be in one of three states: pending, fulfilled, or rejected.
     describe("When pending, a promise: ", () => {
-      it("may transition to either the fulfilled or rejected state.", () => {});
+      describe("may transition to either the fulfilled or rejected state.", () => {
+        it("fulfilled", done => {
+          const p = new P((resolve, reject) => {
+            resolve();
+          });
+          p.then(() => {
+            // Resolved
+            done();
+          });
+        });
+        it("rejected", done => {
+          const p = new P((resolve, reject) => {
+            reject();
+          });
+          p.then(
+            () => {},
+            () => {
+              // Rejected
+              done();
+            }
+          );
+        });
+      });
     });
     describe("When fulfilled, a promise:", () => {
-      it("must not transition to any other state.", () => {});
-      it("must have a value, which must not change.", () => {});
+      it("must not transition to any other state.", done => {
+        const p = new P((resolve, reject) => {
+          resolve();
+        });
+        p.then(
+          () => {
+            done();
+          },
+          () => {
+            expect.reject("Should not be rejected");
+          }
+        );
+      });
+      it("must have a value, which must not change.", done => {
+        const p = new P((resolve, reject) => {
+          resolve(123);
+        });
+        p.then(val => {
+          expect(val).toBe(123);
+          done();
+        });
+      });
     });
     describe("When rejected, a promise:", () => {
-      it("must not transition to any other state.", () => {});
-      it("must have a reason, which must not change.", () => {
+      it("must not transition to any other state.", done => {
+        const p = new P((resolve, reject) => {
+          reject();
+        });
+        p.then(
+          () => {
+            expect.reject("Should not be resolved");
+          },
+          () => {
+            done();
+          }
+        );
+      });
+      it("must have a reason, which must not change.", done => {
         // Here, “must not change” means immutable identity (i.e. ===), but does not imply deep immutability.
         // The then Method
+        const err = { error: 123 };
+        const p = new P((resolve, reject) => {
+          reject(err);
+        });
+        p.then(undefined, val => {
+          expect(val).toBe(err);
+          done();
+        });
       });
     });
   });
@@ -33,8 +95,18 @@ describe("Requirements", () => {
     // A promise’s then method accepts two arguments:
     // promise.then(onFulfilled, onRejected)
     describe("Both onFulfilled and onRejected are optional arguments:", () => {
-      it("If onFulfilled is not a function, it must be ignored.", () => {});
-      it("If onRejected is not a function, it must be ignored.", () => {});
+      it("If onFulfilled is not a function, it must be ignored.", () => {
+        const p = new P((resolve, reject) => {
+          resolve();
+        });
+        p.then(undefined);
+      });
+      it("If onRejected is not a function, it must be ignored.", () => {
+        const p = new P((resolve, reject) => {
+          reject();
+        });
+        p.then(val => {}, undefined);
+      });
     });
     describe("If onFulfilled is a function:", () => {
       it("it must be called after promise is fulfilled, with promise’s value as its first argument.", () => {});
