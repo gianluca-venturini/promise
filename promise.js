@@ -31,13 +31,13 @@ const P = function(callback) {
     if (this.isFullfilled) {
       const onFullfill = this.onFullfilledArray.pop();
       if (onFullfill) {
-        onFullfill(this.fullfilledValue);
+        onFullfill.call(undefined, this.fullfilledValue);
       }
     }
     if (this.isRejected) {
       const onRejected = this.onRejectedArray.pop();
       if (onRejected) {
-        onRejected(this.rejectedValue);
+        onRejected.call(undefined, this.rejectedValue);
       }
     }
   };
@@ -46,8 +46,12 @@ const P = function(callback) {
 };
 
 P.prototype.then = function(onFulfilled, onRejected) {
-  this.onFullfilledArray.push(onFulfilled);
-  this.onRejectedArray.push(onRejected);
+  if (onFulfilled) {
+    this.onFullfilledArray.push(onFulfilled);
+  }
+  if (onRejected) {
+    this.onRejectedArray.push(onRejected);
+  }
   this.chainEvaluation();
 };
 
