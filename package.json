@@ -1,0 +1,14 @@
+{
+  "name": "promise",
+  "version": "1.0.0",
+  "description": "This is a toy implementation of the Promises/A+ specs for learning and fun.",
+  "main": "promise.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "jest": "^24.0.0"
+  }
+}
