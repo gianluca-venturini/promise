@@ -3,16 +3,44 @@
  * Toy implementation of promise.
  */
 const P = function(callback) {
-  const resolve = function(val) {
-    this.fullfilledValue = val;
-    this.isFullfilled = true;
-    this.chainEvaluation();
+  const isThenable = function(entity) {
+    if (typeof entity === "object" && typeof entity.then === "function") {
+      return true;
+    } else {
+      return false;
+    }
   };
-  const reject = function(val) {
+
+  function resolve(val) {
+    if (val instanceof P) {
+      val.then(
+        val => {
+          resolve.call(this, val);
+        },
+        val => {
+          reject.call(this, val);
+        }
+      );
+    } else if (isThenable(val)) {
+      val.then(
+        val => {
+          resolve.call(this, val);
+        },
+        val => {
+          reject.call(this, val);
+        }
+      );
+    } else {
+      this.fullfilledValue = val;
+      this.isFullfilled = true;
+      this.chainEvaluation();
+    }
+  }
+  function reject(val) {
     this.rejectedValue = val;
     this.isRejected = true;
     this.chainEvaluation();
-  };
+  }
 
   this.onFullfilledArray = [];
   this.onRejectedArray = [];

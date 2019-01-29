@@ -375,12 +375,94 @@ describe("Requirements", () => {
     // To run [[Resolve]](promise, x), perform the following steps:
     describe("If promise and x refer to the same object, reject promise with a TypeError as the reason.", () => {
       describe("If x is a promise, adopt its state [3.4]:", () => {
-        it("If x is pending, promise must remain pending until x is fulfilled or rejected.", () => {});
-        it("If/when x is fulfilled, fulfill promise with the same value.", () => {});
-        it("If/when x is rejected, reject promise with the same reason.", () => {});
+        describe("If x is pending, promise must remain pending until x is fulfilled or rejected.", () => {
+          it("resolved", done => {
+            const state = {
+              called: false,
+              resolveInternal: undefined
+            };
+            const p = new P((resolve, reject) => {
+              setTimeout(() =>
+                resolve(
+                  new P((resolve, reject) => {
+                    state.resolveInternal = resolve;
+                  })
+                )
+              );
+            });
+            p.then(val => {
+              state.called = true;
+              expect(val).toBe(123);
+              done();
+            });
+            setTimeout(() => {
+              // Async check that the promise didn't fullfill before we call resolveInternal
+              expect(state.called).toBe(false);
+              state.resolveInternal(123);
+            });
+          });
+          it("rejected", done => {
+            const state = {
+              called: false,
+              rejectInternal: undefined
+            };
+            const p = new P((resolve, reject) => {
+              setTimeout(() =>
+                resolve(
+                  new P((resolve, reject) => {
+                    state.rejectInternal = reject;
+                  })
+                )
+              );
+            });
+            p.then(undefined, val => {
+              state.called = true;
+              expect(val).toBe(123);
+              done();
+            });
+            setTimeout(() => {
+              // Async check that the promise didn't fullfill before we call resolveInternal
+              expect(state.called).toBe(false);
+              state.rejectInternal(123);
+            });
+          });
+        });
+        it("If/when x is fulfilled, fulfill promise with the same value.", () => {
+          const p = new P((resolve, reject) => {
+            setTimeout(() => resolve(new P((resolve, reject) => resolve(123))));
+          });
+          p.then(val => {
+            expect(val).toBe(123);
+            done();
+          });
+        });
+        it("If/when x is rejected, reject promise with the same reason.", () => {
+          const p = new P((resolve, reject) => {
+            setTimeout(() => resolve(new P((resolve, reject) => reject(123))));
+          });
+          p.then(undefined, val => {
+            expect(val).toBe(123);
+            done();
+          });
+        });
       });
       describe("Otherwise, if x is an object or function,", () => {
-        it("Let then be x.then. [3.5]", () => {});
+        it("Let then be x.then. [3.5]", done => {
+          const state = { onResolveInternal: undefined };
+          const p = new P((resolve, reject) => {
+            setTimeout(() =>
+              resolve({
+                then: (onResolve, onReject) =>
+                  (state.onResolveInternal = onResolve)
+              })
+            );
+          });
+          p.then(val => {
+            expect(val).toBe(123);
+            done();
+          });
+          setTimeout(() => state.onResolveInternal(123));
+        });
         it("If retrieving the property x.then results in a thrown exception e, reject promise with e as the reason.", () => {});
         describe("If then is a function, call it with x as this, first argument resolvePromise, and second argument rejectPromise, where:", () => {
           it("If/when resolvePromise is called with a value y, run [[Resolve]](promise, y).", () => {});
@@ -391,7 +473,15 @@ describe("Requirements", () => {
             it("Otherwise, reject promise with e as the reason.", () => {});
           });
         });
-        it("If then is not a function, fulfill promise with x.", () => {});
+        it("If then is not a function, fulfill promise with x.", () => {
+          const p = new P((resolve, reject) => {
+            setTimeout(() => resolve({ then: "not an object or a function" }));
+          });
+          p.then(undefined, val => {
+            expect(val).toBe({ then: "not an object or a function" });
+            done();
+          });
+        });
       });
       it("If x is not an object or function, fulfill promise with x.", () => {});
     });
