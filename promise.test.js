@@ -278,14 +278,18 @@ describe("Requirements", () => {
           expect(state.c2).toBeFalsy();
           expect(state.c3).toBeFalsy();
           state.c1 = true;
+          return 1;
         })
-          .then(() => {
+          .then(val => {
+            expect(val).toBe(1);
             expect(state.c1).toBeTruthy();
             expect(state.c2).toBeFalsy();
             expect(state.c3).toBeFalsy();
             state.c2 = true;
+            return 2;
           })
-          .then(() => {
+          .then(val => {
+            expect(val).toBe(2);
             expect(state.c1).toBeTruthy();
             expect(state.c2).toBeTruthy();
             expect(state.c3).toBeFalsy();
@@ -427,7 +431,7 @@ describe("Requirements", () => {
             });
           });
         });
-        it("If/when x is fulfilled, fulfill promise with the same value.", () => {
+        it("If/when x is fulfilled, fulfill promise with the same value.", done => {
           const p = new P((resolve, reject) => {
             setTimeout(() => resolve(new P((resolve, reject) => resolve(123))));
           });
@@ -436,7 +440,7 @@ describe("Requirements", () => {
             done();
           });
         });
-        it("If/when x is rejected, reject promise with the same reason.", () => {
+        it("If/when x is rejected, reject promise with the same reason.", done => {
           const p = new P((resolve, reject) => {
             setTimeout(() => resolve(new P((resolve, reject) => reject(123))));
           });
@@ -463,27 +467,183 @@ describe("Requirements", () => {
           });
           setTimeout(() => state.onResolveInternal(123));
         });
-        it("If retrieving the property x.then results in a thrown exception e, reject promise with e as the reason.", () => {});
-        describe("If then is a function, call it with x as this, first argument resolvePromise, and second argument rejectPromise, where:", () => {
-          it("If/when resolvePromise is called with a value y, run [[Resolve]](promise, y).", () => {});
-          it("If/when rejectPromise is called with a reason r, reject promise with r.", () => {});
-          it("If both resolvePromise and rejectPromise are called, or multiple calls to the same argument are made, the first call takes precedence, and any further calls are ignored.", () => {});
-          describe("If calling then throws an exception e,", () => {
-            it("If resolvePromise or rejectPromise have been called, ignore it.", () => {});
-            it("Otherwise, reject promise with e as the reason.", () => {});
+        it("If retrieving the property x.then results in a thrown exception e, reject promise with e as the reason.", done => {
+          const p = new P((resolve, reject) => {
+            setTimeout(() =>
+              resolve({
+                get then() {
+                  throw "No then";
+                }
+              })
+            );
+          });
+          p.then(undefined, reason => {
+            expect(reason).toBe("No then");
+            done();
           });
         });
-        it("If then is not a function, fulfill promise with x.", () => {
-          const p = new P((resolve, reject) => {
-            setTimeout(() => resolve({ then: "not an object or a function" }));
+        describe("If then is a function, call it with x as this, first argument resolvePromise, and second argument rejectPromise, where:", () => {
+          it("If/when resolvePromise is called with a value y, run [[Resolve]](promise, y).", done => {
+            const state = { onResolveInternal: undefined };
+            const p = new P((resolve, reject) => {
+              setTimeout(() =>
+                resolve({
+                  then: (onResolve, onReject) =>
+                    (state.onResolveInternal = onResolve)
+                })
+              );
+            });
+            p.then(val => {
+              expect(val).toBe(123);
+              done();
+            });
+            setTimeout(() => state.onResolveInternal(123));
           });
-          p.then(undefined, val => {
-            expect(val).toBe({ then: "not an object or a function" });
+          it("If/when rejectPromise is called with a reason r, reject promise with r.", done => {
+            const state = { onRejectInternal: undefined };
+            const p = new P((resolve, reject) => {
+              setTimeout(() =>
+                resolve({
+                  then: (onResolve, onReject) =>
+                    (state.onRejectInternal = onReject)
+                })
+              );
+            });
+            p.then(undefined, val => {
+              expect(val).toBe(123);
+              done();
+            });
+            setTimeout(() => state.onRejectInternal(123));
+          });
+          it("If both resolvePromise and rejectPromise are called, or multiple calls to the same argument are made, the first call takes precedence, and any further calls are ignored.", done => {
+            const state = {
+              onResolveInternal: undefined,
+              onRejectInternal: undefined,
+              promiseResolved: false
+            };
+            const p = new P((resolve, reject) => {
+              resolve({
+                then: (onResolve, onReject) => {
+                  state.onResolveInternal = onResolve;
+                  state.onRejectInternal = onReject;
+                }
+              });
+            });
+            p.then(
+              val => {
+                expect(val).toBe(123);
+                state.promiseResolved = true;
+              },
+              val => {
+                done("Error, this should be never called");
+              }
+            );
+            setTimeout(() => {
+              state.onResolveInternal(123);
+              state.onRejectInternal(123);
+              setTimeout(() => {
+                expect(state.promiseResolved).toBeTruthy();
+                done();
+              });
+            });
+          });
+          describe("If calling then throws an exception e,", () => {
+            describe("If resolvePromise or rejectPromise have been called, ignore it.", () => {
+              it("resolve", done => {
+                const state = {
+                  resolved: false
+                };
+                const p = new P((resolve, reject) => {
+                  resolve({
+                    then: (onResolve, onReject) => {
+                      onResolve(123);
+                      throw "error";
+                    }
+                  });
+                });
+                p.then(
+                  val => {
+                    expect(val).toBe(123);
+                    state.resolved = true;
+                  },
+                  val => {
+                    expect(val).toBe(123);
+                    done("Should never be called");
+                  }
+                );
+                setTimeout(() => {
+                  expect(state.resolved).toBeTruthy();
+                  done();
+                });
+              });
+              it("reject", done => {
+                const state = {
+                  rejected: false
+                };
+                const p = new P((resolve, reject) => {
+                  resolve({
+                    then: (onResolve, onReject) => {
+                      onreject(123);
+                      throw "error";
+                    }
+                  });
+                });
+                p.then(
+                  val => {
+                    expect(val).toBe(123);
+                    done("Should never be called");
+                  },
+                  val => {
+                    state.rejected = true;
+                    expect(val).toBe(123);
+                  }
+                );
+                setTimeout(() => {
+                  expect(state.rejected).toBeTruthy();
+                  done();
+                });
+              });
+            });
+            it("Otherwise, reject promise with e as the reason.", done => {
+              const p = new P((resolve, reject) => {
+                setTimeout(() =>
+                  resolve({
+                    then: () => {
+                      throw "error";
+                    }
+                  })
+                );
+              });
+              p.then(undefined, reason => {
+                expect(reason).toBe("error");
+                done();
+              });
+            });
+          });
+        });
+        it("If then is not a function, fulfill promise with x.", done => {
+          const p = new P((resolve, reject) => {
+            resolve({
+              then: 123
+            });
+          });
+          p.then(val => {
+            expect(val).toEqual({
+              then: 123
+            });
             done();
           });
         });
       });
-      it("If x is not an object or function, fulfill promise with x.", () => {});
+      it("If x is not an object or function, fulfill promise with x.", done => {
+        const p = new P((resolve, reject) => {
+          resolve(123);
+        });
+        p.then(val => {
+          expect(val).toBe(123);
+          done();
+        });
+      });
     });
     // If a promise is resolved with a thenable that participates in a circular
     // thenable chain, such that the recursive nature of [[Resolve]](promise, thenable)
@@ -499,4 +659,19 @@ describe("Requirements", () => {
   // 3.4.	Generally, it will only be known that x is a true promise if it comes from the current implementation. This clause allows the use of implementation-specific means to adopt the state of known-conformant promises.
   // 3.5.	This procedure of first storing a reference to x.then, then testing that reference, and then calling that reference, avoids multiple accesses to the x.then property. Such precautions are important for ensuring consistency in the face of an accessor property, whose value could change between retrievals.
   // 3.6.	Implementations should not set arbitrary limits on the depth of thenable chains, and assume that beyond that arbitrary limit the recursion will be infinite. Only true cycles should lead to a TypeError; if an infinite chain of distinct thenables is encountered, recursing forever is the correct behavior.
+});
+
+describe("Misc tests", () => {
+  it("is ES6 promise interopeable", done => {
+    const p = new P((resolve, reject) => {
+      setTimeout(() => {
+        resolve(new Promise((resolve, reject) => resolve(123)));
+      });
+    });
+
+    p.then(val => {
+      expect(val).toBe(123);
+      done();
+    });
+  });
 });

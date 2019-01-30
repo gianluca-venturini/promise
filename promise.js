@@ -3,8 +3,8 @@
  * Toy implementation of promise.
  */
 const P = function(callback) {
-  const isThenable = function(entity) {
-    if (typeof entity === "object" && typeof entity.then === "function") {
+  const isThenable = function(entity, then) {
+    if (typeof entity === "object" && typeof then === "function") {
       return true;
     } else {
       return false;
@@ -12,7 +12,19 @@ const P = function(callback) {
   };
 
   function resolve(val) {
-    if (val instanceof P) {
+    if (this.isRejected || this.isFullfilled) {
+      return;
+    }
+
+    let then = undefined;
+    try {
+      then = val && val.then;
+    } catch (error) {
+      reject.call(this, error);
+      return;
+    }
+
+    if (val instanceof P || val instanceof Promise) {
       val.then(
         val => {
           resolve.call(this, val);
@@ -21,15 +33,19 @@ const P = function(callback) {
           reject.call(this, val);
         }
       );
-    } else if (isThenable(val)) {
-      val.then(
-        val => {
-          resolve.call(this, val);
-        },
-        val => {
-          reject.call(this, val);
-        }
-      );
+    } else if (isThenable(val, then)) {
+      try {
+        then(
+          val => {
+            resolve.call(this, val);
+          },
+          val => {
+            reject.call(this, val);
+          }
+        );
+      } catch (error) {
+        reject.call(this, error);
+      }
     } else {
       this.fullfilledValue = val;
       this.isFullfilled = true;
@@ -37,6 +53,9 @@ const P = function(callback) {
     }
   }
   function reject(val) {
+    if (this.isRejected || this.isFullfilled) {
+      return;
+    }
     this.rejectedValue = val;
     this.isRejected = true;
     this.chainEvaluation();
